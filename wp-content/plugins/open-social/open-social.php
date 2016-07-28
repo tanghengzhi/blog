@@ -1261,7 +1261,7 @@ function open_social_style() {
 		'status' => 'abc',
 		'content' => 'def'
 	));
-	if(osop('share_wechat')) wp_enqueue_script('jquery.qrcode', 'http://cdn.bootcss.com/jquery.qrcode/1.0/jquery.qrcode.min.js', array('jquery'));
+	if(osop('share_wechat')) wp_enqueue_script('jquery.qrcode', 'https://cdn.bootcss.com/jquery.qrcode/1.0/jquery.qrcode.min.js', array('jquery'));
 }
 function open_login_button_show($icon_type,$icon_title,$icon_link){
 	return "<div class=\"login_button login_icon_$icon_type\" onclick=\"login_button_click('$icon_type','$icon_link')\" title=\"$icon_title\"></div>";
