@@ -3,10 +3,10 @@
  * Process when plugin is activated
  */
 function pvc_install(){
-	update_option('a3_pvc_version', '1.4.0');
+	update_option( 'a3_pvc_version', A3_PVC_VERSION );
 
 	// empty pvc_daily table for daily
-	wp_schedule_event( strtotime( date('Y-m-d'). ' 00:00:00' ), 'daily', 'pvc_empty_daily_table_daily_event_hook' );
+	wp_schedule_event( time(), 'daily', 'pvc_empty_daily_table_daily_event_hook' );
 
 	A3_PVC::install_database();
 
@@ -29,33 +29,12 @@ function pvc_deactivation() {
 update_option('a3rev_pvc_plugin', 'a3_page_view_count');
 update_option('a3rev_auth_pvc', '');
 
-
-/**
- * Load Localisation files.
- *
- * Note: the first-loaded translation file overrides any following ones if the same translation is present.
- *
- * Locales found in:
- * 		- WP_LANG_DIR/page-views-count/page-views-count-LOCALE.mo
- * 	 	- /wp-content/plugins/page-views-count/languages/page-views-count-LOCALE.mo (which if not found falls back to)
- * 	 	- WP_LANG_DIR/plugins/page-views-count-LOCALE.mo
- */
-function a3_pvc_load_plugin_textdomain() {
-	$locale = apply_filters( 'plugin_locale', get_locale(), 'page-views-count' );
-
-	load_textdomain( 'page-views-count', WP_LANG_DIR . '/page-views-count/page-views-count-' . $locale . '.mo' );
-	load_plugin_textdomain( 'page-views-count', false, A3_PVC_FOLDER . '/languages/' );
-}
-
 function a3_pvc_plugin_init() {
-	if ( get_option('pvc_just_installed') ) {
-		delete_option('pvc_just_installed');
-		wp_redirect( admin_url( 'options-general.php?page=a3-pvc', 'relative' ) );
-		exit;
-	}
+
 	// Set up localisation
 	a3_pvc_load_plugin_textdomain();
 }
+
 add_action( 'init', 'a3_pvc_plugin_init' );
 
 // Add custom style to dashboard
@@ -84,18 +63,16 @@ function pvc_empty_daily_table_do_daily() {
 	$wpdb->query("DELETE FROM " . $wpdb->prefix . "pvc_daily WHERE time <= '".date('Y-m-d', strtotime('-2 days'))."'");
 }
 
-add_action('genesis_after_post_content', array('A3_PVC', 'genesis_pvc_stats_echo'));
+$pvc_settings = get_option( 'pvc_settings', array( 'position' => 'bottom' ) );
+if ( isset( $pvc_settings['position'] ) && 'top' == $pvc_settings['position'] ) {
+	add_action('genesis_before_post_content', array('A3_PVC', 'genesis_pvc_stats_echo'));
+} else {
+	add_action('genesis_after_post_content', array('A3_PVC', 'genesis_pvc_stats_echo'));
+}
 //add_action('loop_end', array('A3_PVC', 'pvc_stats_echo'), 9);
 add_filter('the_content', array('A3_PVC','pvc_stats_show'), 8);
 add_filter('the_excerpt', array('A3_PVC','excerpt_pvc_stats_show'), 8);
 //add_filter('get_the_excerpt', array('A3_PVC','excerpt_pvc_stats_show'), 8);
-
-// Fixed for Wordpress SEO plugin
-add_filter( 'wpseo_opengraph_desc', array( 'A3_PVC', 'fixed_wordpress_seo_plugin' ) );
-
-// Backbone load page view count stats
-add_action( 'wp_ajax_pvc_backbone_load_stats', array( 'A3_PVC', 'pvc_backbone_load_stats' ) );
-add_action( 'wp_ajax_nopriv_pvc_backbone_load_stats', array( 'A3_PVC', 'pvc_backbone_load_stats' ) );
 
 // Add ajax script to load page view count stats into footer
 add_action( 'wp_enqueue_scripts', array( 'A3_PVC', 'register_plugin_scripts' ) );
@@ -103,6 +80,7 @@ add_action( 'wp_enqueue_scripts', array( 'A3_PVC', 'register_plugin_scripts' ) )
 // Check upgrade functions
 add_action('plugins_loaded', 'pvc_lite_upgrade_plugin');
 function pvc_lite_upgrade_plugin () {
+	global $a3_pvc_less;
 
 	if(version_compare(get_option('a3_pvc_version'), '1.2') === -1){
 		update_option('a3_pvc_version', '1.2');
@@ -143,7 +121,14 @@ function pvc_lite_upgrade_plugin () {
 		update_option( 'pvc_settings', $pvc_settings );
 	}
 
-	update_option('a3_pvc_version', '1.4.0');
+	if ( version_compare( get_option('a3_pvc_version'), '2.0.0' ) === -1 ) {
+		update_option('a3_pvc_version', '2.0.0');
+
+		// Build sass
+		$a3_pvc_less->plugin_build_sass();
+	}
+
+	update_option( 'a3_pvc_version', A3_PVC_VERSION );
 
 }
 

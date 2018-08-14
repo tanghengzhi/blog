@@ -79,7 +79,7 @@
     	var fontFace = controls.find( '.a3rev-ui-typography-face' ).val();
     	var fontStyle = controls.find( '.a3rev-ui-typography-style' ).val();
     	var fontColor = controls.find( '.a3rev-ui-typography-color' ).val();
-   		var lineHeight = ( parseInt( fontSize )  / 2 ) + parseInt( fontSize ); // Calculate pleasant line-height for the selected font size.
+   		var lineHeight = controls.find( '.a3rev-ui-typography-line_height' ).val();
 		
 		// Generate array of non-Google fonts.
 		var nonGoogleFonts = new Array( 
@@ -171,7 +171,7 @@
 		}
 		
     	// Construct styles.
-    	previewStyles += 'font: ' + fontStyle + ' ' + fontSize + '/' + lineHeight + 'px ' + fontFace + ';';
+    	previewStyles += 'font: ' + fontStyle + ' ' + fontSize + '/' + lineHeight + ' ' + fontFace + ';';
     	if ( fontColor ) { previewStyles += ' color: ' + fontColor + ';'; }
     	
     	// Construct preview HTML.

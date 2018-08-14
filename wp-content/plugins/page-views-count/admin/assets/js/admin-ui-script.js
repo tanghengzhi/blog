@@ -195,6 +195,39 @@
 			"fadeOut" : 50
 		});
 
+		/* Apply Time Picker */
+		$('.a3rev_panel_container input.a3rev-ui-time_picker').each(function(i){
+			current_value = $(this).val();
+			step = 60;
+			time_min = false;
+			time_max = false;
+			time_allow = [];
+
+			if( typeof $(this).data('time_step') != undefined ) {
+				step = $(this).data('time_step');
+			}
+			if( typeof $(this).data('time_min') != undefined ) {
+				time_min = $(this).data('time_min');
+			}
+			if( typeof $(this).data('time_max') != undefined ) {
+				time_max = $(this).data('time_max');
+			}
+			if( typeof $(this).data('time_allow') != undefined ) {
+				time_allow = $(this).data('time_allow');
+			}
+
+			$(this).datetimepicker({
+				datepicker: false,
+				format: 'H:i',
+				value: current_value,
+				step: step,
+				minTime: time_min,
+				maxTime: time_max,
+				allowTimes: time_allow
+			});
+
+		});
+
 		/* Apply Sub tab selected script */
 		$('div.a3_subsubsub_section ul.subsubsub li a:eq(0)').addClass('current');
 		$('div.a3_subsubsub_section .section:gt(0)').hide();
@@ -239,8 +272,7 @@
 			}
 		});
 
-		$(document).trigger("a3rev-ui-script-loaded");
-
+		/* Apply Setting box open & close */
 		$(document).on('click', '.a3-plugin-ui-panel-box', function(){
 			var box_handle = $(this).parent('.a3rev_panel_box_handle');
 			var box_id     = box_handle.data('box-id');
@@ -266,6 +298,9 @@
 				box_data.is_open = 1;
 				$(this).addClass('box_open');
 				box_handle.siblings('.a3rev_panel_box_inside').addClass('box_open').slideDown(500);
+				box_handle.siblings('.a3rev_panel_box_inside').find('img.rwd_image_maps').each(function(i){
+					$(this).rwdImageMaps();
+				});
 			}
 
 			if ( $(this).hasClass('enable_toggle_box_save') && typeof a3_admin_ui_script_params != 'undefined' ) {
@@ -273,6 +308,7 @@
 			}
 		});
 
+		/* Apply Manual Check version */
 		$(document).on( 'click', '.a3rev-ui-manual_check_version', function(){
 			var bt_check_version = $(this);
 			var version_message_container = $(this).siblings('.a3rev-ui-check-version-message');
@@ -308,5 +344,414 @@
 				});
 			}
 		});
+
+		/* Apply Ajax Submit */
+		$(document).on( 'click', '.a3rev-ui-ajax_submit-button', function(){
+			var bt_ajax_submit = $(this);
+			var submit_data = JSON.parse( JSON.stringify( bt_ajax_submit.data('submit_data') ) );
+			if ( typeof submit_data.ajax_url == 'undefined' ) return false;
+
+			var submit_successsed = bt_ajax_submit.siblings('.a3rev-ui-ajax_submit-successed');
+			var submit_errors = bt_ajax_submit.siblings('.a3rev-ui-ajax_submit-errors');
+			var progress_bar_wrap = bt_ajax_submit.siblings('.a3rev-ui-progress-bar-wrap');
+			var progress_inner = progress_bar_wrap.find('.a3rev-ui-progress-inner');
+			var progressing_text = progress_bar_wrap.find('.a3rev-ui-progressing-text');
+			var completed_text = progress_bar_wrap.find('.a3rev-ui-completed-text');
+			bt_ajax_submit.hide();
+			submit_successsed.hide();
+			submit_errors.hide();
+			progress_bar_wrap.show();
+
+			// Plugin have use this control type need to get this trigger to make action from plugin
+			$('#' + bt_ajax_submit.attr('id') ).trigger("a3rev-ui-ajax_submit-click", [bt_ajax_submit]);
+
+			$.ajax({
+				xhr: function () {
+					var xhr = new window.XMLHttpRequest();
+					var progressLoading = null;
+
+					// Upload progress
+					xhr.upload.addEventListener("progress", function (evt) {
+						if (evt.lengthComputable) {
+							var interValTime = 1000;
+							var startWidth = 0;
+
+							progressLoading = setInterval( function() {
+								startWidth += Math.floor((Math.random() * 10) + 1);
+								console.log( startWidth );
+								if ( 90 <= startWidth  ) {
+									clearInterval( progressLoading );
+								} else {
+									progress_inner.css({
+										width: startWidth + '%'
+									});
+								}
+							}, interValTime );
+						}
+					}, false);
+
+					// Download progress
+					xhr.addEventListener("progress", function (evt) {
+						if (evt.lengthComputable) {
+							var percentComplete = evt.loaded / evt.total;
+							progress_inner.css({
+								width: percentComplete * 100 + '%'
+							});
+
+							if (percentComplete === 1) {
+								console.log( 'process completed' );
+								clearInterval( progressLoading );
+							}
+						}
+					}, false);
+
+					return xhr;
+				},
+
+				type: submit_data.ajax_type,
+				url: submit_data.ajax_url,
+				data: submit_data.data,
+				success: function ( response ) {
+					data = $.parseJSON( response );
+					$('#' + bt_ajax_submit.attr('id') ).trigger("a3rev-ui-ajax_submit-completed", [ bt_ajax_submit, data ]);
+
+					setTimeout( function() {
+						progressing_text.hide();
+						completed_text.show();
+					}, 2000 );
+
+					setTimeout( function() {
+						bt_ajax_submit.show();
+						submit_successsed.show();
+						progress_bar_wrap.hide();
+						progressing_text.show();
+						completed_text.hide();
+						progress_inner.css({width: '0%'});
+					}, 3000 );
+				},
+				error: function( e ) {
+					console.log(e);
+
+					$('#' + bt_ajax_submit.attr('id') ).trigger("a3rev-ui-ajax_submit-errors", [ e, bt_ajax_submit ]);
+
+					setTimeout( function() {
+						progressing_text.hide();
+						completed_text.show();
+					}, 2000 );
+
+					setTimeout( function() {
+						bt_ajax_submit.show();
+						progress_bar_wrap.hide();
+						progressing_text.show();
+						completed_text.hide();
+						progress_inner.css({width: '0%'});
+					}, 3000 );
+				}
+			});
+		});
+
+		/* Apply Ajax Multi Submit */
+		function a3rev_ui_ajax_submit( bt_ajax_submit, multi_ajax, ajax_item_id, ajax_next_item_id ) {
+			var ajax_item = multi_ajax[ajax_item_id];
+			var current_items = $('.a3rev-ui-statistic-'+ajax_item_id).find('.a3rev-ui-statistic-current-item').data('current');
+			var total_items = ajax_item.total_items;
+
+			// Call to next ajax if current ajax have current items equal or more than total items
+			if ( current_items >= total_items ) {
+				$('#' + bt_ajax_submit.attr('id') ).trigger('a3rev-ui-ajax_multi_submit-'+ajax_item_id+'-completed', [ bt_ajax_submit, multi_ajax, ajax_item_id, ajax_next_item_id ]);
+				return false;
+			}
+
+			var submit_successsed = bt_ajax_submit.siblings('.a3rev-ui-ajax_multi_submit-successed');
+			var submit_errors     = bt_ajax_submit.siblings('.a3rev-ui-ajax_multi_submit-errors');
+			var progress_bar_wrap = bt_ajax_submit.siblings('.a3rev-ui-progress-bar-wrap');
+			var progress_inner    = progress_bar_wrap.find('.a3rev-ui-progress-inner');
+			var progressing_text  = progress_bar_wrap.find('.a3rev-ui-progressing-text');
+			var completed_text    = progress_bar_wrap.find('.a3rev-ui-completed-text');
+
+			progressing_text.html( ajax_item.progressing_text );
+			completed_text.html( ajax_item.completed_text );
+
+			progressing_text.show();
+			completed_text.hide();
+
+			var progress_current_items = progress_inner.data('current');
+			var progress_total_items = progress_inner.data('total');
+			var currentPercent = progress_current_items / progress_total_items;
+			var maximumWidth = Math.floor( total_items / progress_total_items * 100 );
+
+			var submit_data = ajax_item.submit_data;
+
+			$.ajax({
+				xhr: function () {
+					var xhr = new window.XMLHttpRequest();
+					var progressLoading = null;
+
+					// Upload progress
+					xhr.upload.addEventListener("progress", function (evt) {
+						if (evt.lengthComputable) {
+							var interValTime = 1000;
+							var startWidth = Math.floor( currentPercent * 100 );
+							if ( startWidth > 100 ) startWidth = 100;
+							progress_inner.css({
+								width: startWidth + '%'
+							});
+						}
+					}, false);
+
+					// Download progress
+					xhr.addEventListener("progress", function (evt) {
+						if (evt.lengthComputable) {
+							var percentComplete = evt.loaded / evt.total;
+							if (percentComplete === 1) {
+								// progress completed
+							}
+						}
+					}, false);
+
+					return xhr;
+				},
+
+				type: submit_data.ajax_type,
+				url: submit_data.ajax_url,
+				data: submit_data.data,
+				success: function ( response ) {
+					result = $.parseJSON( response );
+
+					new_items = result.current_items;
+
+					increase_items = new_items - current_items;
+					progress_current_items += increase_items;
+					progress_inner.data('current', progress_current_items);
+
+					currentPercent = progress_current_items / progress_total_items;
+					newWidth = Math.floor( currentPercent * 100 );
+					if ( newWidth > 100 ) newWidth = 100;
+					progress_inner.css({
+						width: newWidth + '%'
+					});
+
+					a3rev_ui_ajax_multi_statistic_change( ajax_item_id, new_items, current_items, total_items, 3000, true );
+
+					if ( typeof result.status != 'undefined' && 'completed' != result.status ) {
+						$('#' + bt_ajax_submit.attr('id') ).trigger('a3rev-ui-ajax_multi_submit-'+ajax_item_id+'-'+result.status, [ bt_ajax_submit, multi_ajax, ajax_item_id, ajax_next_item_id ]);
+					} else {
+						progressing_text.hide();
+						completed_text.show();
+						setTimeout( function(){
+							$('#' + bt_ajax_submit.attr('id') ).trigger('a3rev-ui-ajax_multi_submit-'+ajax_item_id+'-completed', [ bt_ajax_submit, multi_ajax, ajax_item_id, ajax_next_item_id ]);
+						}, 2000 );
+					}
+				},
+				error: function( e ) {
+					console.log(e);
+
+					// Allow trigger error
+					$('#' + bt_ajax_submit.attr('id') ).trigger('a3rev-ui-ajax_multi_submit-'+ajax_item_id+'-errors', [ e, bt_ajax_submit, multi_ajax, ajax_item_id, ajax_next_item_id ]);
+
+					// Stop ajax call here
+					$('#' + bt_ajax_submit.attr('id') ).trigger('a3rev-ui-ajax_multi_submit-errors', [ bt_ajax_submit, multi_ajax, ajax_item_id, ajax_next_item_id ]);
+
+					setTimeout( function() {
+						bt_ajax_submit.show();
+						submit_successsed.hide();
+						submit_errors.show();
+						progress_bar_wrap.hide();
+						progressing_text.show();
+						completed_text.hide();
+					}, 2000 );
+				}
+			});
+
+			return false;
+		}
+
+		function a3rev_ui_ajax_multi_statistic_circle_animation( ajax_item_id, current_point, total_point ) {
+			current_deg = 360;
+			left_deg    = 360;
+			right_deg   = 180;
+			if ( current_point < total_point ) {
+				current_deg = Math.round( current_point / total_point * 360 );
+			}
+
+			if ( current_deg <= 180 ) {
+				left_deg = right_deg = current_deg;
+				$('.a3rev-ui-statistic-'+ajax_item_id).find('.a3rev-ui-pie').removeClass('pie-more-50');
+			} else {
+				right_deg = 180;
+				left_deg = current_deg;
+				$('.a3rev-ui-statistic-'+ajax_item_id).find('.a3rev-ui-pie').addClass('pie-more-50');
+			}
+
+			$('.a3rev-ui-statistic-'+ajax_item_id).find('.a3rev-ui-pie-left-side').css('transform', 'rotate('+left_deg+'deg)');
+			$('.a3rev-ui-statistic-'+ajax_item_id).find('.a3rev-ui-pie-right-side').css('transform', 'rotate('+right_deg+'deg)');
+		}
+
+		function a3rev_ui_ajax_multi_statistic_change( ajax_item_id, new_point, current_point, total_point, duration, have_effect) {
+			$('.a3rev-ui-statistic-'+ajax_item_id).find('.a3rev-ui-statistic-current-item').data('current', new_point );
+			if ( have_effect == false ) {
+				$('.a3rev-ui-statistic-'+ajax_item_id).find('.a3rev-ui-statistic-current-item').html(new_point);
+			}
+
+			$({current_point: current_point}).animate({current_point: new_point}, {
+				duration: duration,
+      			easing:'swing', // can be anything
+      			step: function() {
+      				if ( have_effect ) {
+      					$('.a3rev-ui-statistic-'+ajax_item_id).find('.a3rev-ui-statistic-current-item').html( Math.round( this.current_point) );
+      				}
+      				a3rev_ui_ajax_multi_statistic_circle_animation( ajax_item_id, this.current_point, total_point );
+      			},
+      			complete: function() {
+      				if ( have_effect ) {
+      					$('.a3rev-ui-statistic-'+ajax_item_id).find('.a3rev-ui-statistic-current-item').html( Math.round( this.current_point ) );
+      				}
+      				a3rev_ui_ajax_multi_statistic_circle_animation( ajax_item_id, this.current_point, total_point );
+      			}
+			});
+		}
+
+		$('.a3rev_panel_container .a3rev-ui-ajax_multi_submit-button').each(function(){
+			var bt_ajax_submit = $(this);
+			var multi_ajax_registered = JSON.parse( JSON.stringify( bt_ajax_submit.data('multi_ajax') ) );
+
+			$.each( multi_ajax_registered, function( i, ajax_item ){
+				ajax_item_id = ajax_item.item_id;
+
+				$(document).on( 'a3rev-ui-ajax_multi_submit-'+ajax_item_id+'-start', '#' + bt_ajax_submit.attr('id'), function( event, bt_ajax_submit, multi_ajax, ajax_item_id, ajax_next_item_id ) {
+					console.log( 'Start - ' + ajax_item_id );
+					a3rev_ui_ajax_submit( bt_ajax_submit, multi_ajax, ajax_item_id, ajax_next_item_id );
+				});
+
+				$(document).on( 'a3rev-ui-ajax_multi_submit-'+ajax_item_id+'-continue', '#' + bt_ajax_submit.attr('id'), function( event, bt_ajax_submit, multi_ajax, ajax_item_id, ajax_next_item_id ) {
+					console.log( 'Continue - ' + ajax_item_id );
+					a3rev_ui_ajax_submit( bt_ajax_submit, multi_ajax, ajax_item_id, ajax_next_item_id );
+				});
+
+				$(document).on( 'a3rev-ui-ajax_multi_submit-'+ajax_item_id+'-completed', '#' + bt_ajax_submit.attr('id'), function( event, bt_ajax_submit, multi_ajax, ajax_item_id, ajax_next_item_id ) {
+					console.log( 'Completed - ' + ajax_item_id );
+
+					// Compeleted multi ajax if don't have next ajax item id
+					if ( '' == ajax_next_item_id ) {
+						$('#' + bt_ajax_submit.attr('id') ).trigger("a3rev-ui-ajax_multi_submit-end", [bt_ajax_submit, multi_ajax]);
+						return false;
+					}
+
+					ajax_next_item = multi_ajax[ajax_next_item_id];
+					new_ajax_next_item_id = ajax_next_item.next_item_id;
+
+					console.log('trigger - '+ajax_next_item_id);
+					$('#' + bt_ajax_submit.attr('id') ).trigger('a3rev-ui-ajax_multi_submit-'+ajax_next_item_id+'-start', [ bt_ajax_submit, multi_ajax, ajax_next_item_id, new_ajax_next_item_id ]);
+				});
+			});
+
+			$(document).on( 'a3rev-ui-ajax_multi_submit-end', '#' + bt_ajax_submit.attr('id'), function( event, bt_ajax_submit, multi_ajax ) {
+				console.log( 'Completed Multi Ajax' );
+
+				bt_ajax_submit.data( 'resubmit', 1 );
+
+				var submit_successsed = bt_ajax_submit.siblings('.a3rev-ui-ajax_multi_submit-successed');
+				var submit_errors     = bt_ajax_submit.siblings('.a3rev-ui-ajax_multi_submit-errors');
+				var progress_bar_wrap = bt_ajax_submit.siblings('.a3rev-ui-progress-bar-wrap');
+				var progress_inner    = progress_bar_wrap.find('.a3rev-ui-progress-inner');
+				var progressing_text  = progress_bar_wrap.find('.a3rev-ui-progressing-text');
+				var completed_text    = progress_bar_wrap.find('.a3rev-ui-completed-text');
+
+				progress_inner.css({
+					width: '100%'
+				});
+
+				setTimeout( function() {
+					progressing_text.hide();
+					completed_text.show();
+				}, 2000 );
+
+				setTimeout( function() {
+					bt_ajax_submit.show();
+					submit_successsed.show();
+					submit_errors.hide();
+					progress_bar_wrap.hide();
+					progressing_text.show();
+					completed_text.hide();
+					progress_inner.css({width: '0%'});
+				}, 3000 );
+			});
+		});
+
+		$(document).on( 'click', '.a3rev-ui-ajax_multi_submit-button', function(){
+			var bt_ajax_submit = $(this);
+			var resubmit = bt_ajax_submit.data('resubmit');
+			bt_ajax_submit.data('resubmit', 0);
+
+			var multi_ajax = JSON.parse( JSON.stringify( bt_ajax_submit.data('multi_ajax') ) );
+
+			var submit_successsed = bt_ajax_submit.siblings('.a3rev-ui-ajax_multi_submit-successed');
+			var submit_errors     = bt_ajax_submit.siblings('.a3rev-ui-ajax_multi_submit-errors');
+			var progress_bar_wrap = bt_ajax_submit.siblings('.a3rev-ui-progress-bar-wrap');
+			var progress_inner    = progress_bar_wrap.find('.a3rev-ui-progress-inner');
+			var progressing_text  = progress_bar_wrap.find('.a3rev-ui-progressing-text');
+			var completed_text    = progress_bar_wrap.find('.a3rev-ui-completed-text');
+
+			bt_ajax_submit.hide();
+			submit_successsed.hide();
+			submit_errors.hide();
+			progress_bar_wrap.show();
+
+			// Reset progressing start point to 0 for resubmit
+			if ( resubmit == 1 ) {
+				progress_inner.data('current', 0);
+			}
+
+
+			// Plugin have use this control type need to get this trigger to make action from plugin
+			$('#' + bt_ajax_submit.attr('id') ).trigger("a3rev-ui-ajax_multi_submit-click", [bt_ajax_submit]);
+
+			var progress_current_items = progress_inner.data('current');
+			var progress_total_items = progress_inner.data('total')
+			var currentPercent = progress_current_items / progress_total_items;
+			if ( currentPercent < 1 ) {
+				progress_inner.animate({
+					width: Math.floor( currentPercent * 100 ) + '%'
+				}, 0 );
+			} else {
+				currentPercent = 0;
+			}
+
+			var have_first_ajax_item = false;
+			var first_ajax_item = null;
+			$.each( multi_ajax, function( i, ajax_item ){
+				if ( ! have_first_ajax_item ) {
+					first_ajax_item = ajax_item;
+					have_first_ajax_item = true;
+				}
+				ajax_item_id   = ajax_item.item_id;
+				current_items = $('.a3rev-ui-statistic-'+ajax_item_id).find('.a3rev-ui-statistic-current-item').data('current');
+				total_items = ajax_item.total_items;
+
+				// Reset current items of each ajax to 0 for resubmit
+				if ( resubmit == 1 ) {
+					a3rev_ui_ajax_multi_statistic_change( ajax_item_id, 0, current_items, total_items, 500, false );
+				}
+			});
+
+			// Just call first ajax submit
+			ajax_item_id   = first_ajax_item.item_id;
+			ajax_next_item_id = first_ajax_item.next_item_id;
+
+			$('#' + bt_ajax_submit.attr('id') ).trigger("a3rev-ui-ajax_multi_submit-start", [bt_ajax_submit, multi_ajax]);
+
+			console.log('trigger - '+ajax_item_id);
+			$('#' + bt_ajax_submit.attr('id') ).trigger('a3rev-ui-ajax_multi_submit-'+ajax_item_id+'-start', [ bt_ajax_submit, multi_ajax, ajax_item_id, ajax_next_item_id ]);
+
+			return false;
+		});
+
+		/* Apply Image Maps script */
+		$('.a3rev_panel_container img.rwd_image_maps').each(function(i){
+			$(this).rwdImageMaps();
+		});
+
+		$(document).trigger("a3rev-ui-script-loaded");
+
 	});
 })(jQuery);

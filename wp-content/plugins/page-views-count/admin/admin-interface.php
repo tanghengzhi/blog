@@ -59,6 +59,7 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 		
 		if ( is_admin() && isset( $_REQUEST['page'] ) && in_array( $_REQUEST['page'], $admin_pages ) ) {
 			add_action( 'admin_enqueue_scripts', array( $this, 'admin_script_load' ) );
+			add_action( 'admin_enqueue_scripts', array( $this, 'register_modal_scripts' ), 0 );
 			do_action( $this->plugin_name . '_init_scripts' );
 
 			add_action( 'admin_print_scripts', array( $this, 'admin_localize_printed_scripts' ), 5 );
@@ -83,6 +84,13 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 		$suffix = defined('SCRIPT_DEBUG') && SCRIPT_DEBUG ? '' : '.min';
 		wp_register_style( 'font-awesome-styles', $this->admin_plugin_url() . '/assets/css/font-awesome' . $suffix . '.css', array(), '4.5.0', 'all' );
 	}
+
+	public function register_modal_scripts() {
+		$suffix = defined('SCRIPT_DEBUG') && SCRIPT_DEBUG ? '' : '.min';
+		wp_register_style( 'bootstrap-modal', $this->admin_plugin_url() . '/assets/css/modal' . $suffix . '.css', array(), '4.0.0', 'all' );
+		wp_register_script( 'bootstrap-util', $this->admin_plugin_url() . '/assets/js/bootstrap/util' . $suffix . '.js', array( 'jquery' ), '4.0.0', false );
+		wp_register_script( 'bootstrap-modal', $this->admin_plugin_url() . '/assets/js/bootstrap/modal' . $suffix . '.js', array( 'jquery', 'bootstrap-util' ), '4.0.0', false );
+	}
 	
 	/*-----------------------------------------------------------------------------------*/
 	/* admin_script_load */
@@ -94,18 +102,21 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 		$rtl = is_rtl() ? '.rtl' : '';
 		
 		wp_register_script( 'chosen', $this->admin_plugin_url() . '/assets/js/chosen/chosen.jquery' . $suffix . '.js', array( 'jquery' ), true, false );
-		wp_register_script( 'a3rev-chosen-new', $this->admin_plugin_url() . '/assets/js/chosen/chosen.jquery' . $suffix . '.js', array( 'jquery' ), true, false );
-		wp_register_script( 'a3rev-style-checkboxes', $this->admin_plugin_url() . '/assets/js/iphone-style-checkboxes' . $rtl . '.js', array('jquery'), true, false );
+		wp_register_script( 'a3rev-chosen-new', $this->admin_plugin_url() . '/assets/js/chosen/chosen.jquery' . $suffix . '.js', array( 'jquery' ), $this->framework_version, false );
+		wp_register_script( 'a3rev-style-checkboxes', $this->admin_plugin_url() . '/assets/js/iphone-style-checkboxes' . $rtl . '.js', array('jquery'), $this->framework_version, false );
 		wp_register_script( 'jquery-ui-slider-rtl', $this->admin_plugin_url() . '/assets/js/ui-slider/jquery.ui.slider.rtl' . $suffix . '.js', array('jquery'), true, true );
 		
-		wp_register_script( 'a3rev-admin-ui-script', $this->admin_plugin_url() . '/assets/js/admin-ui-script.js', array('jquery'), true, true );
-		wp_register_script( 'a3rev-typography-preview', $this->admin_plugin_url() . '/assets/js/a3rev-typography-preview.js',  array('jquery'), false, true );
-		wp_register_script( 'a3rev-settings-preview', $this->admin_plugin_url() . '/assets/js/a3rev-settings-preview.js',  array('jquery'), false, true );
+		wp_register_script( 'a3rev-admin-ui-script', $this->admin_plugin_url() . '/assets/js/admin-ui-script.js', array('jquery'), $this->framework_version, true );
+		wp_register_script( 'a3rev-typography-preview', $this->admin_plugin_url() . '/assets/js/a3rev-typography-preview.js',  array('jquery'), $this->framework_version, true );
+		wp_register_script( 'a3rev-settings-preview', $this->admin_plugin_url() . '/assets/js/a3rev-settings-preview.js',  array('jquery'), $this->framework_version, true );
 		wp_register_script( 'jquery-tiptip', $this->admin_plugin_url() . '/assets/js/tipTip/jquery.tipTip' . $suffix . '.js', array( 'jquery' ), true, true );
-		wp_register_script( 'a3rev-metabox-ui', $this->admin_plugin_url() . '/assets/js/data-meta-boxes.js', array( 'jquery' ), true, true );
+		wp_register_script( 'a3rev-metabox-ui', $this->admin_plugin_url() . '/assets/js/data-meta-boxes.js', array( 'jquery' ), $this->framework_version, true );
+		wp_register_script( 'jquery-rwd-image-maps', $this->admin_plugin_url() . '/assets/js/rwdImageMaps/jquery.rwdImageMaps.min.js', array( 'jquery' ), true, true );
+		wp_register_script( 'jquery-datetime-picker', $this->admin_plugin_url() . '/assets/js/datetimepicker/jquery.datetimepicker.js', array( 'jquery' ), true, true );
 		
 		wp_enqueue_script( 'jquery' );
 		wp_enqueue_script( 'wp-color-picker' );
+		wp_enqueue_script( 'jquery-datetime-picker' );
 		if ( is_rtl() ) {
 			wp_enqueue_script( 'jquery-ui-slider-rtl' );
 		} else {
@@ -167,9 +178,6 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 					delete_transient( $transient_name );
 
 					$new_version = '';
-					if ( class_exists( 'WP_PVC_Upgrade' ) ) {
-						$new_version = WP_PVC_Upgrade::get_version_info();
-					}
 
 					$version_message = $this->get_version_message();
 					$has_new_version = 1;
@@ -177,20 +185,19 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 						$version_message = __( 'Great! You have the latest version installed.', 'page-views-count' );
 						$has_new_version = 0;
 					} else {
-						delete_option('pvc_clean_on_deletion');
+						delete_option( $this->plugin_name . '_clean_on_deletion');
 						if ( is_array( $new_version ) && 'valid' == $new_version['is_valid_key'] ) {
 							$current_update_plugins = get_site_transient( 'update_plugins' );
 							if ( isset( $current_update_plugins->response ) ) {
-								$plugin_name = A3_PVC_PLUGIN_NAME;
-								if ( empty( $current_update_plugins->response[$plugin_name] ) ) {
-									$current_update_plugins->response[$plugin_name] = new stdClass();
+								if ( empty( $current_update_plugins->response[$this->plugin_path] ) ) {
+									$current_update_plugins->response[$this->plugin_path] = new stdClass();
 								}
-								$current_update_plugins->response[$plugin_name]->url = "http://www.a3rev.com";
-								$current_update_plugins->response[$plugin_name]->slug = get_option( $this->plugin_option_key );
-								$current_update_plugins->response[$plugin_name]->package = $new_version["url"];
-								$current_update_plugins->response[$plugin_name]->new_version = $new_version['version'];
-								$current_update_plugins->response[$plugin_name]->upgrade_notice = $new_version['upgrade_notice'];
-								$current_update_plugins->response[$plugin_name]->id = "0";
+								$current_update_plugins->response[$this->plugin_path]->url = "http://www.a3rev.com";
+								$current_update_plugins->response[$this->plugin_path]->slug = $this->plugin_name;
+								$current_update_plugins->response[$this->plugin_path]->package = $new_version["url"];
+								$current_update_plugins->response[$this->plugin_path]->new_version = $new_version['version'];
+								$current_update_plugins->response[$this->plugin_path]->upgrade_notice = $new_version['upgrade_notice'];
+								$current_update_plugins->response[$this->plugin_path]->id = "0";
 								set_site_transient( 'update_plugins', $current_update_plugins );
 							}
 						}
@@ -218,19 +225,20 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 		
 		$suffix = defined('SCRIPT_DEBUG') && SCRIPT_DEBUG ? '' : '.min';
 		
-		wp_enqueue_style( 'a3rev-admin-ui-style', $this->admin_plugin_url() . '/assets/css/admin-ui-style' . $suffix . '.css' );
+		wp_enqueue_style( 'a3rev-admin-ui-style', $this->admin_plugin_url() . '/assets/css/admin-ui-style' . $suffix . '.css', array(), $this->framework_version );
 		
 		if ( version_compare( $wp_version, '3.8', '>=' ) ) {
-			wp_enqueue_style( 'a3rev-admin-flat-ui-style', $this->admin_plugin_url() . '/assets/css/admin-flat-ui-style' . $suffix . '.css' );
+			wp_enqueue_style( 'a3rev-admin-flat-ui-style', $this->admin_plugin_url() . '/assets/css/admin-flat-ui-style' . $suffix . '.css', array(), $this->framework_version );
 		}
 		wp_enqueue_style( 'wp-color-picker' );
-		wp_enqueue_style( 'a3rev-chosen-new-style', $this->admin_plugin_url() . '/assets/js/chosen/chosen' . $suffix . '.css' );
+		wp_enqueue_style( 'jquery-datetime-picker', $this->admin_plugin_url() . '/assets/css/jquery.datetimepicker.css' );
+		wp_enqueue_style( 'a3rev-chosen-new-style', $this->admin_plugin_url() . '/assets/js/chosen/chosen' . $suffix . '.css', array(), $this->framework_version );
 		wp_enqueue_style( 'a3rev-tiptip-style', $this->admin_plugin_url() . '/assets/js/tipTip/tipTip.css' );
-		wp_enqueue_style( 'a3rev-metabox-ui-style', $this->admin_plugin_url() . '/assets/css/a3_admin_metabox.css' );
+		wp_enqueue_style( 'a3rev-metabox-ui-style', $this->admin_plugin_url() . '/assets/css/a3_admin_metabox.css', array(), $this->framework_version );
 
 		if ( is_rtl() ) {
-			wp_enqueue_style( 'a3rev-admin-ui-style-rtl', $this->admin_plugin_url() . '/assets/css/admin-ui-style.rtl' . $suffix . '.css' );
-			wp_enqueue_style( 'a3rev-metabox-ui-style-rtl', $this->admin_plugin_url() . '/assets/css/a3_admin_metabox.rtl' . $suffix . '.css' );
+			wp_enqueue_style( 'a3rev-admin-ui-style-rtl', $this->admin_plugin_url() . '/assets/css/admin-ui-style.rtl' . $suffix . '.css', array(), $this->framework_version );
+			wp_enqueue_style( 'a3rev-metabox-ui-style-rtl', $this->admin_plugin_url() . '/assets/css/a3_admin_metabox.rtl' . $suffix . '.css', array(), $this->framework_version );
 		}
 		
 	} // End admin_css_load()
@@ -316,7 +324,7 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 		
 		foreach ( $options as $value ) {
 			if ( ! isset( $value['type'] ) ) continue;
-			if ( in_array( $value['type'], array( 'heading' ) ) ) continue;
+			if ( in_array( $value['type'], array( 'row', 'column', 'heading', 'ajax_submit', 'ajax_multi_submit' ) ) ) continue;
 			if ( ! isset( $value['id'] ) || trim( $value['id'] ) == '' ) continue;
 			if ( ! isset( $value['default'] ) ) $value['default'] = '';
 			
@@ -367,7 +375,12 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 					} else {
 						$id_attribute		= esc_attr( $value['id'] );
 					}
-					
+
+					// Backward compatibility to old settings don't have line_height option for typography
+					if ( 'typography' == $value['type'] && ! isset( $value['default']['line_height'] ) ) {
+						$value['default']['line_height'] = '1.4em';
+					}
+
 					$default_settings[$id_attribute] = $value['default'];
 				
 				break;
@@ -393,7 +406,7 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 		
 		// Get settings for option values is an array and it's in single option name for all settings
 		if ( trim( $option_name ) != '' ) {
-			global $$option_name;
+			global ${$option_name};
 			
 			$default_settings = $this->get_settings_default( $options, $option_name );
 			
@@ -411,7 +424,7 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 		// Get settings for option value is stored as a record or it's spearate option
 		foreach ( $options as $value ) {
 			if ( ! isset( $value['type'] ) ) continue;
-			if ( in_array( $value['type'], array( 'heading' ) ) ) continue;
+			if ( in_array( $value['type'], array( 'row', 'column', 'heading', 'ajax_submit', 'ajax_multi_submit' ) ) ) continue;
 			if ( ! isset( $value['id'] ) || trim( $value['id'] ) == '' ) continue;
 			if ( ! isset( $value['default'] ) ) $value['default'] = '';
 			
@@ -432,7 +445,7 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 			}
 			
 			if ( trim( $option_name ) == '' || $value['separate_option'] != false ) {
-				global $$id_attribute;
+				global ${$id_attribute};
 				
 				$current_setting = get_option( $id_attribute, $value['default'] );
 				
@@ -452,6 +465,12 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 							$current_setting = array_map( array( $this, 'admin_stripslashes' ), $current_setting );
 						elseif ( ! is_null( $current_setting ) )
 							$current_setting = esc_attr( stripslashes( $current_setting ) );
+
+						// Backward compatibility to old settings don't have line_height option for typography
+						if ( 'typography' == $value['type'] && ! isset( $current_setting['line_height'] ) ) {
+							$current_setting['line_height'] = '1.4em';
+						}
+
 					break;
 				}
 				
@@ -481,7 +500,7 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 				
 				foreach ( $options as $value ) {
 					if ( ! isset( $value['type'] ) ) continue;
-					if ( in_array( $value['type'], array( 'heading' ) ) ) continue;
+					if ( in_array( $value['type'], array( 'row', 'column', 'heading', 'ajax_submit', 'ajax_multi_submit' ) ) ) continue;
 					if ( ! isset( $value['id'] ) || trim( $value['id'] ) == '' ) continue;
 					if ( ! isset( $value['default'] ) ) $value['default'] = '';
 					if ( ! isset( $value['free_version'] ) ) $value['free_version'] = false;
@@ -531,7 +550,7 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 		// Get settings for option value is stored as a record or it's spearate option
 		foreach ( $options as $value ) {
 			if ( ! isset( $value['type'] ) ) continue;
-			if ( in_array( $value['type'], array( 'heading' ) ) ) continue;
+			if ( in_array( $value['type'], array( 'row', 'column', 'heading', 'ajax_submit', 'ajax_multi_submit' ) ) ) continue;
 
 			// Save for global settings of plugin framework
 			switch ( $value['type'] ) {
@@ -676,6 +695,11 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 								}
 							}
 						}
+
+						// Set Default value if this field is required and has default value and option value is empty
+						if ( isset ( $text_field['required'] ) && $text_field['required'] && empty( $option_value ) && ! empty( $text_field['default'] ) ) {
+							$option_value = $text_field['default'];
+						}
 						
 						if ( strstr( $text_field['id'], '[' ) ) {
 							// Set keys and value
@@ -784,6 +808,12 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 			}
 			
 			if ( !in_array( $value['type'], array( 'array_textfields' ) ) ) {
+
+				// Set Default value if this field is required and has default value and option value is empty
+				if ( isset ( $value['required'] ) && $value['required'] && empty( $option_value ) && ! empty( $value['default'] ) ) {
+					$option_value = $value['default'];
+				}
+
 				if ( strstr( $value['id'], '[' ) ) {
 					// Set keys and value
 					$key = key( $option_array[ $id_attribute ] );
@@ -852,7 +882,7 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 				if ( $free_version ) {
 					foreach ( $options as $value ) {
 						if ( ! isset( $value['type'] ) ) continue;
-						if ( in_array( $value['type'], array( 'heading' ) ) ) continue;
+						if ( in_array( $value['type'], array( 'row', 'column', 'heading', 'ajax_submit', 'ajax_multi_submit' ) ) ) continue;
 						if ( ! isset( $value['id'] ) || trim( $value['id'] ) == '' ) continue;
 						
 						switch ( $value['type'] ) {
@@ -896,7 +926,7 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 		// Update settings default for option value is stored as a record or it's spearate option
 		foreach ( $options as $value ) {
 			if ( ! isset( $value['type'] ) ) continue;
-			if ( in_array( $value['type'], array( 'heading' ) ) ) continue;
+			if ( in_array( $value['type'], array( 'row', 'column', 'heading', 'ajax_submit', 'ajax_multi_submit' ) ) ) continue;
 			if ( ! isset( $value['id'] ) || trim( $value['id'] ) == '' ) continue;
 			if ( ! isset( $value['default'] ) ) $value['default'] = '';
 			if ( ! isset( $value['free_version'] ) ) $value['free_version'] = false;
@@ -1091,9 +1121,10 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 	 * @return void
 	 * ========================================================================
 	 * Option Array Structure :
-	 * type					=> heading | google_api_key | onoff_toggle_box | text | email | number | password | color | bg_color | textarea | select | multiselect | radio | onoff_radio | checkbox | onoff_checkbox 
+	 * type					=> row | column | heading | ajax_submit | ajax_multi_submit | google_api_key | onoff_toggle_box 
+	 * 						   | text | email | number | password | color | bg_color | textarea | select | multiselect | radio | onoff_radio | checkbox | onoff_checkbox 
 	 *						   | switcher_checkbox | image_size | single_select_page | typography | border | border_styles | border_corner | box_shadow 
-	 *						   | slider | upload | wp_editor | array_textfields | 
+	 *						   | slider | upload | wp_editor | array_textfields | time_picker
 	 *
 	 * id					=> text
 	 * name					=> text
@@ -1103,7 +1134,8 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 	 * default				=> text : apply for other types
 	 * 						   array( 'enable' => 1, 'color' => '#515151' ) : apply bg_color only
 	 *						   array( 'width' => '125', 'height' => '125', 'crop' => 1 ) : apply image_size only
-	 *						   array( 'size' => '9px', 'face' => 'Arial', 'style' => 'normal', 'color' => '#515151' ) : apply for typography only 
+	 *						   array( 'size' => '9px', line_height => '1.4em', 'face' => 'Arial', 'style' => 'normal', 'color' => '#515151' ) : apply for typography only 
+	 * required 			=> true | false : apply for all types
 	 *						   array( 'width' => '1px', 'style' => 'normal', 'color' => '#515151', 'corner' => 'rounded' | 'square' , 'top_left_corner' => 3, 
 	 *									'top_right_corner' => 3, 'bottom_left_corner' => 3, 'bottom_right_corner' => 3 ) : apply for border only
 	  *						   array( 'width' => '1px', 'style' => 'normal', 'color' => '#515151' ) : apply for border_styles only
@@ -1167,6 +1199,58 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 	 *
 	 * strip_methods		=> true | false : apply for upload type only
 	 *
+	 * submit_data 			=> array : apply for ajax_submit only
+	 *						   ---------------- example ---------------------
+	 * 							array(
+	 *								'ajax_url'  => admin_url( 'admin-ajax.php', 'relative' ),
+	 *								'ajax_type' => 'POST',
+	 *								'data'      => array(
+	 *									'action'   => 'action_name',
+	 *								),
+	 *							),
+	 * button_name      	=> text : apply for ajax_submit, ajax_multi_submit only
+	 * progressing_text     => text : apply for ajax_submit, ajax_multi_submit only
+	 * completed_text      	=> text : apply for ajax_submit, ajax_multi_submit only
+	 * successed_text      	=> text : apply for ajax_submit, ajax_multi_submit only
+	 *
+	 * statistic_column     => number : apply for ajax_multi_submit only
+	 * resubmit      		=> true | false : apply for ajax_multi_submit only
+	 *
+	 * multi_submit			=> array : apply for ajax_multi_submit only
+	 *						   ---------------- example ---------------------
+	 * 							array(
+	 *								array(
+	 *									'item_id'          => 'item_ajax_id',
+	 *									'item_name'        => 'Item Ajax Name',
+	 *									'current_items'    => 20,
+	 *									'total_items'      => 20,
+	 *									'progressing_text' => 'Processing,
+	 *									'completed_text'   => 'Completed',
+	 *									'submit_data'      => array(
+	 *										'ajax_url'  => admin_url( 'admin-ajax.php', 'relative' ),
+	 *										'ajax_type' => 'POST',
+	 *										'data'      => array(
+	 *											'action'   => 'action_name',
+	 *										)
+	 *									),
+	 *									'show_statistic'       => true,
+	 *									'statistic_customizer' => array(
+	 *										'current_color' => '#96587d',
+	 *									),
+	 *								),
+	 * 								array(
+	 * 									...
+	 * 								),
+	 *								...
+	 *							)
+	 * 
+	 * time_step			=> number : apply for time_picker only
+	 * time_min				=> text : apply for time_picker only
+	 * time_max				=> text : apply for time_picker only
+	 * time_allow			=> text : apply for time_picker only
+	 *						   ---------------- example ---------------------
+	 * 							[ '9:00', '11:00', '12:00', '21:00' ]
+	 *
 	 */
 	 
 	public function admin_forms( $options, $form_key, $option_name = '', $form_messages = array() ) {
@@ -1217,7 +1301,11 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 		<div class="a3rev_panel_container" style="visibility:hidden; height:0; overflow:hidden;" >
         <form action="" method="post">
 		<?php do_action( $this->plugin_name . '-' . trim( $form_key ) . '_settings_start' ); ?>
+		<div class="a3rev_panel_row"> <!-- Open Panel Row -->
 		<?php
+		$had_first_row = false;
+		$had_first_column = false;
+		$closed_panel_inner = false;
 		$count_heading = 0;
 		$end_heading_id = false;
 		$header_box_opening = false;
@@ -1269,7 +1357,7 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 				$description = $tip = '';
 			}
 	
-			if ( $description && in_array( $value['type'], array( 'manual_check_version', 'textarea', 'radio', 'onoff_radio', 'typography', 'border', 'border_styles', 'border_corner', 'box_shadow', 'array_textfields', 'wp_editor', 'upload' ) ) ) {
+			if ( $description && in_array( $value['type'], array( 'manual_check_version', 'ajax_submit', 'ajax_multi_submit', 'textarea', 'radio', 'onoff_radio', 'typography', 'border', 'border_styles', 'array_textfields', 'wp_editor', 'upload' ) ) ) {
 				$description = '<div class="desc" style="margin-bottom:5px;">' . $description . '</div>';
 			} elseif ( $description ) {
 				$description = '<span class="description" style="margin-left:5px;">' . $description . '</span>';
@@ -1283,6 +1371,7 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 			 * [default_value_height] 		: apply for image_size type
 			 *
 			 * [default_value_size]			: apply for typography type
+			 * [default_value_line_height]	: apply for typography type
 			 * [default_value_face]			: apply for typography type
 			 * [default_value_style]		: apply for typography, border, border_styles types
 			 * [default_value_color]		: apply for typography, border, border_styles types
@@ -1305,6 +1394,7 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 			} elseif ( $value['type'] == 'typography' ) {
 				if ( ! is_array( $value['default'] ) ) $value['default'] = array();
 				if ( ! isset( $value['default']['size'] ) ) $value['default']['size'] = '';
+				if ( ! isset( $value['default']['line_height'] ) ) $value['default']['line_height'] = '';
 				if ( ! isset( $value['default']['face'] ) ) $value['default']['face'] = '';
 				if ( ! isset( $value['default']['style'] ) ) $value['default']['style'] = '';
 				if ( ! isset( $value['default']['color'] ) || trim( $value['default']['color'] ) == '' ) $value['default']['color'] = '#515151';
@@ -1416,8 +1506,111 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 				$id_attribute		= esc_attr( $option_name ) . '_' . $id_attribute;
 			}
 
+			// Update id attribute if current element is child of array
+			if ( $child_key != false ) {
+				$id_attribute .= '_' . $child_key;
+			}
+
 			// Switch based on type
 			switch( $value['type'] ) {
+
+				// Row
+				case 'row':
+
+					if ( $end_heading_id !== false && ! $closed_panel_inner ) {
+						if ( trim( $end_heading_id ) != '' ) do_action( $this->plugin_name . '_settings_' . sanitize_title( $end_heading_id ) . '_end' );
+						echo '</table>' . "\n\n";
+						echo '</div>' . "\n\n";
+						if ( trim( $end_heading_id ) != '' ) do_action( $this->plugin_name . '_settings_' . sanitize_title( $end_heading_id ) . '_after' );
+
+						$closed_panel_inner = true;
+					}
+
+					if ( $header_sub_box_opening ) {
+						$header_sub_box_opening = false;
+
+						// close box inside
+						echo '</div>' . "\n\n";
+
+						// close panel box
+						echo '</div>' . "\n\n";
+					}
+
+					if ( $header_box_opening ) {
+						$header_box_opening = false;
+
+						// close box inside
+						echo '</div>' . "\n\n";
+
+						// close panel box
+						echo '</div>' . "\n\n";
+					}
+
+					if ( $had_first_column ) {
+						// close panel column
+						echo '</div>' . "\n\n";
+					}
+
+					if ( $had_first_row ) {
+						// close panel row
+						echo '</div>' . "\n\n";
+
+						// open panel column
+						echo '<div class="a3rev_panel_row">' . "\n\n";
+					}
+
+					$had_first_column = false;
+					$had_first_row    = true;
+
+				break;
+
+				// Column
+				case 'column':
+
+					if ( $end_heading_id !== false && ! $closed_panel_inner ) {
+						if ( trim( $end_heading_id ) != '' ) do_action( $this->plugin_name . '_settings_' . sanitize_title( $end_heading_id ) . '_end' );
+						echo '</table>' . "\n\n";
+						echo '</div>' . "\n\n";
+						if ( trim( $end_heading_id ) != '' ) do_action( $this->plugin_name . '_settings_' . sanitize_title( $end_heading_id ) . '_after' );
+
+						$closed_panel_inner = true;
+					}
+
+					if ( $header_sub_box_opening ) {
+						$header_sub_box_opening = false;
+
+						// close box inside
+						echo '</div>' . "\n\n";
+
+						// close panel box
+						echo '</div>' . "\n\n";
+					}
+
+					if ( $header_box_opening ) {
+						$header_box_opening = false;
+
+						// close box inside
+						echo '</div>' . "\n\n";
+
+						// close panel box
+						echo '</div>' . "\n\n";
+					}
+
+					if ( $had_first_column ) {
+						// close panel column
+						echo '</div>' . "\n\n";
+
+						// open panel column
+						echo '<div class="a3rev_panel_column">' . "\n\n";
+					} else {
+						// open panel column
+						echo '<div class="a3rev_panel_column">' . "\n\n";
+					}
+
+					$had_first_column = true;
+					$had_first_row    = true;
+
+				break;
 
 				// Heading
 				case 'heading':
@@ -1433,7 +1626,7 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 					}
 
 					$count_heading++;
-					if ( $count_heading > 1 )  {
+					if ( $count_heading > 1 && ! $closed_panel_inner )  {
 						if ( trim( $end_heading_id ) != '' ) do_action( $this->plugin_name . '_settings_' . sanitize_title( $end_heading_id ) . '_end' );
 						echo '</table>' . "\n\n";
 						echo '</div>' . "\n\n";
@@ -1504,11 +1697,20 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 							}
 						}
 
+						$box_handle_class = '';
+						if ( isset( $value['is_active'] ) && true == $value['is_active'] ) {
+							$box_handle_class .= 'box_active';
+						}
+
+						if ( isset( $_GET['box_open'] ) && $_GET['box_open'] == $value['id'] ) {
+							$opened_class = 'box_open';
+						}
+
 						// open panel box
 						echo '<div id="'. esc_attr( $value['id'] ) . '" class="a3rev_panel_box '. esc_attr( $value['class'] ) .'" style="'. esc_attr( $value['css'] ) .'">' . "\n\n";
 
 						// open box handle
-						echo '<div data-form-key="'. esc_attr( trim( $form_key ) ) .'" data-box-id="'. esc_attr( $heading_box_id ) .'" class="a3rev_panel_box_handle" >' . "\n\n";
+						echo '<div data-form-key="'. esc_attr( trim( $form_key ) ) .'" data-box-id="'. esc_attr( $heading_box_id ) .'" class="a3rev_panel_box_handle ' . $box_handle_class .'" >' . "\n\n";
 
 						echo ( ! empty( $value['name'] ) ) ? '<h3 class="a3-plugin-ui-panel-box '. $toggle_box_class . ' ' . $opened_class . '">'. esc_html( $value['name'] ) .' '. $view_doc .'</h3>' : '';
 
@@ -1544,6 +1746,8 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 						echo wpautop( wptexturize( $value['desc'] ) );
 						echo '</div>' . "\n\n";
 					}
+
+					$closed_panel_inner = false;
 
 					echo '<table class="form-table">' . "\n\n";
 
@@ -1608,30 +1812,189 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 
 				// Manual Check New Version when click on the button instead of wait for daily
 				case 'manual_check_version':
-					$version_message = $this->get_version_message();
-					$new_version_class = '';
-					if ( '' != trim( $version_message ) ) {
-						$new_version_class = 'a3rev-ui-new-version-message';
+
+					$check_version_class = 'a3rev-ui-new-version-message';
+
+					if ( is_multisite() ) {
+						$version_message = __( 'Sorry, this feature just for Network Admin.', 'page-views-count' );
+					} else {
+						global $a3_dashboard_plugin_requirement;
+
+						if ( ! $a3_dashboard_plugin_requirement->is_installed() ) {
+							$version_message = sprintf( __( 'You need to install and activate the <a title="" href="%s" target="_parent">a3rev Dashboard plugin</a> for manage version and get auto upgrade to latest version.', 'page-views-count' ), $a3_dashboard_plugin_requirement->install_url() );
+						} elseif ( ! $a3_dashboard_plugin_requirement->is_activated() ) {
+							$version_message = sprintf( __( 'You need to activate the <a title="" href="%s" target="_parent">a3rev Dashboard plugin</a> for manage version and get auto upgrade to latest version.', 'page-views-count' ), $a3_dashboard_plugin_requirement->activate_url() );
+						} elseif ( function_exists( 'is_a3_club_membership' ) && ! is_a3_club_membership() ) {
+							$version_message = sprintf( __( 'You need to go to <a title="" href="%s">a3 Dashboard Main page</a> for login before check for Update. Use your account creds on <a href="https://a3rev.com" target="_parent">a3rev.com</a> to login.', 'page-views-count' ), self_admin_url( 'admin.php?page=a3rev-dashboard' ) );
+						} else {
+							$check_version_class = 'a3rev-ui-latest-version-message';
+							$version_message = sprintf( __( 'Go to <a href="%s">a3 Dashboard Main page</a> and hit on <strong>CHECK NOW</strong> button to manual check for Update.', 'page-views-count' ), self_admin_url( 'admin.php?page=a3rev-dashboard' ) );
+						}
 					}
 
 					?><tr valign="top">
-						<th scope="row" class="titledesc">
-                        	<?php echo $tip; ?>
-							<label><?php echo __( 'Check New Version', 'page-views-count' ); ?></label>
-						</th>
-						<td class="forminp forminp-manual_check_version">
-							<?php echo $description; ?>
+						<td colspan="2">
+							<p class="a3rev-ui-check-version-message <?php echo $check_version_class; ?>"><?php echo $version_message; ?></p>
+						</td>
+					</tr><?php
 
-							<input
-								data-transient-name="<?php echo $this->version_transient; ?>"
-								name="<?php echo $this->plugin_name . '-check-version'; ?>"
-                                id="<?php echo $this->plugin_name . '-check-version'; ?>"
-								class="button button-primary a3rev-ui-manual_check_version"
-                                type="button"
-								value="<?php echo __( 'Check Now', 'page-views-count' ); ?>"
-								/> <span class="a3rev-ui-version-checking"> </span>
-								<p class="a3rev-ui-check-version-message <?php echo $new_version_class; ?>"><?php echo $version_message; ?></p>
+				break;
 
+				// Ajax Submit type
+				case 'ajax_submit' :
+					$button_name      = $value['button_name'];
+					$progressing_text = $value['progressing_text'];
+					$completed_text   = $value['completed_text'];
+					$successed_text   = $value['successed_text'];
+					$errors_text      = $value['errors_text'];
+					$submit_data      = json_encode( $value['submit_data'] );
+
+					?><tr valign="top">
+						<th scope="row" class="titledesc"><?php echo $tip; ?><?php echo esc_html( $value['name'] ) ?></th>
+						<td class="forminp">
+
+                            <div class="a3rev-ui-<?php echo sanitize_title( $value['type'] ) ?>-control">
+
+								<button
+									name="<?php echo $name_attribute; ?>"
+									id="<?php echo $id_attribute; ?>"
+									data-submit_data="<?php echo esc_attr( $submit_data ); ?>"
+									type="button"
+									class="a3rev-ui-<?php echo sanitize_title( $value['type'] ) ?>-button <?php echo esc_attr( $value['class'] ); ?>"
+									style="<?php echo esc_attr( $value['css'] ); ?>"
+									<?php echo implode( ' ', $custom_attributes ); ?>
+								><?php echo $button_name; ?></button>
+								<span class="a3rev-ui-<?php echo sanitize_title( $value['type'] ) ?>-successed"><?php echo $successed_text; ?></span>
+								<span class="a3rev-ui-<?php echo sanitize_title( $value['type'] ) ?>-errors"><?php echo $errors_text; ?></span>
+
+								<!-- Progress Bar -->
+								<div class="a3rev-ui-progress-bar-wrap">
+									<div class="a3rev-ui-progress-inner"></div>
+									<div class="a3rev-ui-progressing-text"><?php echo $progressing_text; ?></div>
+									<div class="a3rev-ui-completed-text"><?php echo $completed_text; ?></div>
+								</div>
+
+                           </div>
+                           <?php echo $description; ?>
+						</td>
+					</tr><?php
+
+				break;
+
+				// Ajax Multi Submit type
+				case 'ajax_multi_submit' :
+					$resubmit         = $value['resubmit'];
+					$button_name      = $value['button_name'];
+					$progressing_text = $value['progressing_text'];
+					$completed_text   = $value['completed_text'];
+					$successed_text   = $value['successed_text'];
+					$errors_text      = $value['errors_text'];
+					$statistic_column = isset( $value['statistic_column'] ) ? $value['statistic_column'] : 1;
+
+					$multi_current_items = 0;
+					$multi_total_items   = 0;
+
+					$multi_submit = $value['multi_submit'];
+					$multi_ajax  = array();
+					if ( is_array( $multi_submit ) && count( $multi_submit ) > 0 ) {
+						$number_ajax = 0;
+						$old_item_id = '';
+						foreach ( $multi_submit as $single_submit ) {
+							$multi_current_items += (int) $single_submit['current_items'];
+							$multi_total_items += (int) $single_submit['total_items'];
+
+							$single_submit['next_item_id'] = '';
+							$multi_ajax[$single_submit['item_id']] = $single_submit;
+
+							if ( $number_ajax > 0 ) {
+								$multi_ajax[$old_item_id]['next_item_id'] = $single_submit['item_id'];
+							}
+							$old_item_id = $single_submit['item_id'];
+
+							$number_ajax++;
+						}
+					}
+					$multi_ajax = json_encode( $multi_ajax );
+
+					?><tr valign="top">
+						<th scope="row" class="titledesc"><?php echo $tip; ?><?php echo esc_html( $value['name'] ) ?></th>
+						<td class="forminp">
+
+                            <div class="a3rev-ui-<?php echo sanitize_title( $value['type'] ) ?>-control">
+								<?php echo $description; ?>
+								<button
+									data-resubmit="<?php echo $resubmit ? 1 : 0 ; ?>"
+									name="<?php echo $name_attribute; ?>"
+									id="<?php echo $id_attribute; ?>"
+									data-multi_ajax="<?php echo esc_attr( $multi_ajax ); ?>"
+									type="button"
+									class="a3rev-ui-<?php echo sanitize_title( $value['type'] ) ?>-button <?php echo esc_attr( $value['class'] ); ?>"
+									style="<?php echo esc_attr( $value['css'] ); ?>"
+									<?php echo implode( ' ', $custom_attributes ); ?>
+								><?php echo $button_name; ?></button>
+								<span class="a3rev-ui-<?php echo sanitize_title( $value['type'] ) ?>-successed"><?php echo $successed_text; ?></span>
+								<span class="a3rev-ui-<?php echo sanitize_title( $value['type'] ) ?>-errors"><?php echo $errors_text; ?></span>
+
+								<!-- Progress Bar -->
+								<div class="a3rev-ui-progress-bar-wrap">
+									<div class="a3rev-ui-progress-inner" data-current="<?php echo $multi_current_items; ?>" data-total="<?php echo $multi_total_items; ?>" ></div>
+									<div class="a3rev-ui-progressing-text"><?php echo $progressing_text; ?></div>
+									<div class="a3rev-ui-completed-text"><?php echo $completed_text; ?></div>
+								</div>
+								<div style="clear: both;"></div>
+
+								<!-- Status Object -->
+								<div class="a3rev-ui-statistics-wrap">
+								<?php if ( $multi_total_items > 0 ) {
+									$column_width = round( (100 / $statistic_column ), 2, PHP_ROUND_HALF_DOWN );
+									foreach ( $multi_submit as $single_submit ) {
+
+										$current_items = (int) $single_submit['current_items'];
+										$total_items   = (int) $single_submit['total_items'];
+
+										// Calculate deg value for cirlce
+										$current_deg = 360;
+										$left_deg    = 360;
+										$right_deg   = 180;
+										$pie_class   = 'pie-more-50';
+										if ( $current_items < $total_items ) {
+											$current_deg = round( ( $current_items / $total_items ) * 360 );
+										}
+										if ( $current_deg <= 180 ) {
+											$left_deg = $right_deg = $current_deg;
+											$pie_class = '';
+										} else {
+											$right_deg = 180;
+											$left_deg = $current_deg;
+										}
+
+										$statistic_customizer = isset ( $single_submit['statistic_customizer'] ) ? $single_submit['statistic_customizer'] : false;
+										if ( $statistic_customizer ) {
+											$current_color = isset( $statistic_customizer['current_color'] ) ? $statistic_customizer['current_color'] : '';
+										}
+								?>
+									<div style="<?php echo ( isset( $single_submit['show_statistic'] ) && ! $single_submit['show_statistic'] ) ? 'display:none;' : ''; ?> width: <?php echo $column_width; ?>%;" class="a3rev-ui-statistic-item a3rev-ui-statistic-<?php echo esc_attr( $single_submit['item_id'] ); ?>">
+										<div class="a3rev-ui-pie-wrap">
+											<div class="a3rev-ui-pie <?php echo esc_attr( $pie_class); ?>">
+												<div class="a3rev-ui-pie-left-side a3rev-ui-pie-half-circle" style="transform: rotate(<?php echo $left_deg; ?>deg); <?php echo ( ! empty( $current_color ) ? 'border-color:' . $current_color : '' ); ?>"></div>
+												<div class="a3rev-ui-pie-right-side a3rev-ui-pie-half-circle" style="transform: rotate(<?php echo $right_deg; ?>deg); <?php echo ( ! empty( $current_color ) ? 'border-color:' . $current_color : '' ); ?>"></div>
+											</div>
+											<div class="a3rev-ui-pie-shadow"></div>
+										</div>
+										<div class="a3rev-ui-statistic-text">
+											<span class="a3rev-ui-statistic-current-item" data-current="<?php echo $current_items; ?>" ><?php echo $current_items; ?></span>
+											<span class="a3rev-ui-statistic-separate">/</span>
+											<span class="a3rev-ui-statistic-total-item"><?php echo $total_items; ?></span>
+											<br />
+											<span class="a3rev-ui-statistic-item-name"><?php echo $single_submit['item_name']; ?></span>
+										</div>
+									</div>
+								<?php
+									}
+								} ?>
+								</div>
+								<div style="clear: both;"></div>
+                           </div>
 						</td>
 					</tr><?php
 
@@ -1815,6 +2178,26 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 								<?php
 								if ( is_array( $value['options'] ) && count( $value['options'] ) > 0 ) {
 									foreach ( $value['options'] as $key => $val ) {
+										if ( is_array( $val ) ) {
+										?>
+										<optgroup label="<?php echo esc_attr( $key ); ?>">
+										<?php
+											foreach ( $val as $sub_key => $sub_val ) {
+										?>
+											<option value="<?php echo esc_attr( $sub_key ); ?>" <?php
+	
+												if ( is_array( $option_value ) )
+													selected( in_array( $sub_key, $option_value ), true );
+												else
+													selected( $option_value, $sub_key );
+		
+											?>><?php echo $sub_val ?></option>
+										<?php
+											}
+										?>
+										</optgroup>
+										<?php
+										} else {
 										?>
 										<option value="<?php echo esc_attr( $key ); ?>" <?php
 	
@@ -1825,6 +2208,7 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 	
 										?>><?php echo $val ?></option>
 										<?php
+										}
 									}
 								}
 								?>
@@ -2082,17 +2466,22 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 						</td>
 					</tr><?php
 				break;
-				
+
 				// Font Control
 				case 'typography':
-				
+
 					$default_color = ' data-default-color="' . esc_attr( $value['default']['color'] ) . '"';
-					
-					$size	= $option_value['size'];
-					$face	= $option_value['face'];
-					$style	= $option_value['style'];
-					$color	= $option_value['color'];
-				
+
+					if ( ! isset( $option_value['line_height'] ) ) {
+						$option_value['line_height'] = '1.4em';
+					}
+
+					$size        = $option_value['size'];
+					$line_height = $option_value['line_height'];
+					$face        = $option_value['face'];
+					$style       = $option_value['style'];
+					$color       = $option_value['color'];
+
 					?><tr valign="top">
 						<th scope="row" class="titledesc"><?php echo $tip; ?><?php echo esc_html( $value['name'] ) ?></th>
 						<td class="forminp">
@@ -2113,8 +2502,23 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 										<?php
 									}
 								?>
-						   </select> 
-                           
+						   </select>
+						   <!-- Line Height -->
+							<select
+								name="<?php echo $name_attribute; ?>[line_height]"
+                                id="<?php echo $id_attribute; ?>-line_height"
+								class="a3rev-ui-<?php echo sanitize_title( $value['type'] ) ?>-line_height chzn-select <?php if ( is_rtl() ) { echo 'chzn-rtl'; } ?>"
+								>
+								<?php
+									for ( $i = 0.6; $i <= 3.1; $i = $i + 0.1 ) {
+										?>
+										<option value="<?php echo esc_attr( $i ); ?>em" <?php
+												selected( $line_height, $i.'em' );
+										?>><?php echo esc_attr( $i ); ?>em</option>
+										<?php
+									}
+								?>
+						   </select>
                            <!-- Font Face -->
 							<select
 								name="<?php echo $name_attribute; ?>[face]"
@@ -2235,7 +2639,7 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 					?><tr valign="top">
 						<th scope="row" class="titledesc"><?php echo $tip; ?><?php echo esc_html( $value['name'] ) ?></th>
 						<td class="forminp forminp-border_corner">
-                        	<?php echo $description; ?>
+							<?php echo $description; ?>
                             <div class="a3rev-ui-settings-control">
                         	<!-- Border Width -->
 							<select
@@ -2282,8 +2686,8 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 								/>
                            
                            <!-- Preview Button -->
-                           <div class="a3rev-ui-settings-preview"><a href="#" class="a3rev-ui-border-preview-button a3rev-ui-settings-preview-button button submit-button" title="<?php _e( 'Preview your customized border settings', 'page-views-count'); ?>"><span>&nbsp;</span></a></div>
-                           
+                           <div class="a3rev-ui-settings-preview"><a href="#" class="a3rev-ui-border-preview-button a3rev-ui-settings-preview-button button submit-button" title="<?php _e( 'Preview your customized border settings', 'page-views-count' ); ?>"><span>&nbsp;</span></a></div>
+                           <span class="description" style="margin-left:5px;"><?php echo __( '0px = No Border', 'page-views-count' ); ?></span>
                            <div style="clear:both; margin-bottom:10px"></div>
                            
                            <!-- Border Corner : Rounded or Square -->
@@ -2402,7 +2806,7 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 					?><tr valign="top">
 						<th scope="row" class="titledesc"><?php echo $tip; ?><?php echo esc_html( $value['name'] ) ?></th>
 						<td class="forminp">
-                        	<?php echo $description; ?>
+							<?php echo $description; ?>
                             <div class="a3rev-ui-settings-control">
                         	<!-- Border Width -->
 							<select
@@ -2449,7 +2853,8 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 								/>
                            
                            <!-- Preview Button -->
-                           <div class="a3rev-ui-settings-preview"><a href="#" class="a3rev-ui-border-preview-button a3rev-ui-settings-preview-button button submit-button" title="<?php _e( 'Preview your customized border styles settings', 'page-views-count'); ?>"><span>&nbsp;</span></a></div>
+                           <div class="a3rev-ui-settings-preview"><a href="#" class="a3rev-ui-border-preview-button a3rev-ui-settings-preview-button button submit-button" title="<?php _e( 'Preview your customized border styles settings', 'page-views-count' ); ?>"><span>&nbsp;</span></a></div>
+                           <span class="description" style="margin-left:5px;"><?php echo __( '0px = No Border', 'page-views-count' ); ?></span>
                            </div>
                            
 						</td>
@@ -2500,7 +2905,6 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 					?><tr valign="top">
 						<th scope="row" class="titledesc"><?php echo $tip; ?><?php echo esc_html( $value['name'] ) ?></th>
 						<td class="forminp forminp-<?php echo sanitize_title( $value['type'] ) ?>">
-                        	<?php echo $description; ?>
                             <div class="a3rev-ui-settings-control">	
                                 <!-- Border Corner : Rounded or Square -->
                                 <input
@@ -2516,8 +2920,8 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 								/> 
                                 
                                 <!-- Preview Button -->
-                               	<div class="a3rev-ui-settings-preview"><a href="#" class="a3rev-ui-border-preview-button a3rev-ui-settings-preview-button button submit-button" title="<?php _e( 'Preview your customized border settings', 'wc_email_inquiry'); ?>"><span>&nbsp;</span></a></div>
-                               
+                               	<div class="a3rev-ui-settings-preview"><a href="#" class="a3rev-ui-border-preview-button a3rev-ui-settings-preview-button button submit-button" title="<?php _e( 'Preview your customized border settings', 'page-views-count' ); ?>"><span>&nbsp;</span></a></div>
+                                <?php echo $description; ?>
                                	<!-- Border Rounded Value -->
 								<div class="a3rev-ui-border-corner-value-container">
                                 	<div class="a3rev-ui-border_corner-top_left">
@@ -2627,18 +3031,18 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 					?><tr valign="top">
 						<th scope="row" class="titledesc"><?php echo $tip; ?><?php echo esc_html( $value['name'] ) ?></th>
 						<td class="forminp forminp-box_shadow">
-                        	<?php echo $description; ?>
                             <input
                                     name="<?php echo $name_attribute; ?>[enable]"
                                     id="<?php echo $id_attribute; ?>"
                                     class="a3rev-ui-box_shadow-enable a3rev-ui-onoff_checkbox <?php echo esc_attr( $value['class'] ); ?>"
-                                    checked_label="<?php _e( 'YES', 'page-views-count' ); ?>"
-                                    unchecked_label="<?php _e( 'NO', 'page-views-count' ); ?>"
+                                    checked_label="<?php _e( 'ON', 'page-views-count' ); ?>"
+                                    unchecked_label="<?php _e( 'OFF', 'page-views-count' ); ?>"
                                     type="checkbox"
                                     value="1"
                                     <?php checked( 1, $enable ); ?>
                                     <?php echo implode( ' ', $custom_attributes ); ?>
 								/>
+							<?php echo $description; ?>
                             <div style="clear:both;"></div>    
                             <div class="a3rev-ui-box_shadow-enable-container">
                             <div class="a3rev-ui-settings-control">
@@ -2921,6 +3325,34 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 					</tr><?php
 					
 				break;
+
+				// Time Picker Control
+				case 'time_picker':
+				
+					$class = 'a3rev-ui-' . sanitize_title( $value['type'] ) . ' ' . esc_attr( $value['class'] );
+
+					?><tr valign="top">
+						<th scope="row" class="titledesc">
+                        	<?php echo $tip; ?>
+							<label for="<?php echo $id_attribute; ?>"><?php echo esc_html( $value['name'] ); ?></label>
+						</th>
+						<td class="forminp forminp-<?php echo sanitize_title( $value['type'] ) ?>">
+                        	<input
+                        		readonly="readonly"
+								name="<?php echo $name_attribute; ?>"
+								id="<?php echo $id_attribute; ?>"
+								type="text"
+								value="<?php echo esc_attr( $option_value ); ?>"
+								class="<?php echo $class; ?>"
+								<?php if ( ! empty( $value['time_step'] ) ) { ?>data-time_step="<?php echo esc_attr( $value['time_step'] ); ?>"<?php } ?>
+								<?php if ( ! empty( $value['time_min'] ) ) { ?>data-time_min="<?php echo esc_attr( $value['time_min'] ); ?>"<?php } ?>
+								<?php if ( ! empty( $value['time_max'] ) ) { ?>data-time_max="<?php echo esc_attr( $value['time_max'] ); ?>"<?php } ?>
+								<?php if ( ! empty( $value['time_allow'] ) ) { ?>data-time_max="<?php echo esc_attr( $value['time_allow'] ); ?>"<?php } ?>
+								/> <?php echo $description; ?>
+						</td>
+					</tr><?php
+									
+				break;
 	
 				// Default: run an action
 				default:
@@ -2976,7 +3408,7 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 			}
 		}
 		
-		if ( $end_heading_id !== false ) {
+		if ( $end_heading_id !== false && ! $closed_panel_inner ) {
 			if ( trim( $end_heading_id ) != '' ) do_action( $this->plugin_name . '_settings_' . sanitize_title( $end_heading_id ) . '_end' );
 				echo '</table>' . "\n\n";
 				echo '</div>' . "\n\n";
@@ -3003,7 +3435,13 @@ class WP_PVC_Admin_Interface extends WP_PVC_Admin_UI
 			echo '</div>' . "\n\n";
 		}
 
+		if ( $had_first_column ) {
+			// close panel column
+			echo '</div>' . "\n\n";
+		}
+
 		?>
+			</div> <!-- Close Panel Row -->
 		<?php do_action( $this->plugin_name . '-' . trim( $form_key ) . '_settings_end' ); ?>
             <p class="submit">
                     <input type="submit" value="<?php _e('Save changes', 'page-views-count'); ?>" class="button button-primary" name="bt_save_settings" />

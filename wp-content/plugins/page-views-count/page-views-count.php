@@ -2,11 +2,11 @@
 /*
 Plugin Name: Page Views Count
 Description: Show front end users all time views and views today on posts, pages, index pages and custom post types with the Page Views Count Plugin. Use the Page Views Count function to add page views to any content type or object created by your theme or plugins.
-Version: 1.4.0
-Requires at least: 3.7
-Tested up to: 4.5
-Author: A3 Revolution
-Author URI: http://a3rev.com
+Version: 2.0.5
+Requires at least: 4.6
+Tested up to: 4.9.6
+Author: a3rev Software
+Author URI: https://a3rev.com
 Text Domain: page-views-count
 Domain Path: /languages
 License: A "Slug" license name e.g. GPL2
@@ -21,10 +21,28 @@ define('A3_PVC_CSS_URL', A3_PVC_URL . '/assets/css');
 define('A3_PVC_JS_URL', A3_PVC_URL . '/assets/js');
 define('A3_PVC_IMAGES_URL', A3_PVC_URL . '/assets/images');
 
-define('A3_PVC_VERSION', '1.4.0');
+define( 'A3_PVC_KEY', 'a3_page_view_count' );
+define( 'A3_PVC_VERSION', '2.0.5' );
+
+/**
+ * Load Localisation files.
+ *
+ * Note: the first-loaded translation file overrides any following ones if the same translation is present.
+ *
+ * Locales found in:
+ * 		- WP_LANG_DIR/page-views-count/page-views-count-LOCALE.mo
+ * 	 	- /wp-content/plugins/page-views-count/languages/page-views-count-LOCALE.mo (which if not found falls back to)
+ * 	 	- WP_LANG_DIR/plugins/page-views-count-LOCALE.mo
+ */
+function a3_pvc_load_plugin_textdomain() {
+	$locale = apply_filters( 'plugin_locale', get_locale(), 'page-views-count' );
+
+	load_textdomain( 'page-views-count', WP_LANG_DIR . '/page-views-count/page-views-count-' . $locale . '.mo' );
+	load_plugin_textdomain( 'page-views-count', false, A3_PVC_FOLDER . '/languages/' );
+}
 
 // API Class
-//include_once( 'api/pvc-api.php' );
+include_once( 'api/pvc-api.php' );
 
 include ('admin/admin-ui.php');
 include ('admin/admin-interface.php');
@@ -32,6 +50,7 @@ include ('admin/admin-interface.php');
 include ('admin/admin-pages/admin-pvc-page.php');
 
 include ('admin/admin-init.php');
+include ('admin/less/sass.php');
 
 include ("pvc_class.php");
 include ("classes/class-pvc-metabox.php");
@@ -68,4 +87,5 @@ function pvc_check_exclude( $postid = 0 ) {
 		return true;
 	}
 }
+
 ?>

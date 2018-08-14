@@ -8,10 +8,15 @@
   white-space: nowrap;
 }
 .pvc_stats {
-  background: url("../../chart-bar.png") no-repeat 0 center transparent !important;
   float: left;
-  padding-top: 5px !important;
-  padding-right: 5px !important;
-  padding-bottom: 5px !important;
-  padding-left: 25px !important;
+  padding: 5px !important;
+}
+.pvc_stats i.pvc-stats-icon.small {
+  font-size: 10px;
+}
+.pvc_stats i.pvc-stats-icon.medium {
+  font-size: 14px;
+}
+.pvc_stats i.pvc-stats-icon.large {
+  font-size: 18px;
 }

@@ -389,9 +389,12 @@ class WP_PVC_Fonts_Face extends WP_PVC_Admin_UI
 			}
 		}
 
-		$this->is_valid_google_api_key();
-
-		$google_fonts = get_option( $this->plugin_name . '_google_font_list', array() );
+		if ( apply_filters( $this->plugin_name . '_new_google_fonts_enable', true ) ) {
+			$this->is_valid_google_api_key();
+			$google_fonts = get_option( $this->plugin_name . '_google_font_list', array() );
+		} else {
+			$google_fonts = array();
+		}
 
 		if ( ! is_array( $google_fonts ) || count( $google_fonts ) < 1 ) {
 			$google_fonts = apply_filters( $this->plugin_name . '_google_fonts', $this->google_fonts );
@@ -574,10 +577,15 @@ class WP_PVC_Fonts_Face extends WP_PVC_Admin_UI
 			$option['face'] = "'" . $option['face'] . "', arial, sans-serif";
 		}
 
+		$line_height = '1.4em';
+        if( isset( $option['line_height'] ) ){
+            $line_height = $option['line_height'];
+        }
+
 		if ( !@$option['style'] && !@$option['size'] && !@$option['color'] )
 			return 'font-family: '.stripslashes($option["face"]).' !important;';
 		else
-			return 'font:'.$option['style'].' '.$option['size'].' '.stripslashes($option['face']).' !important; color:'.$option['color'].' !important;';
+			return 'font:'.$option['style'].' '.$option['size'].'/' . $line_height . ' ' .stripslashes($option['face']).' !important; color:'.$option['color'].' !important;';
 	}
 
 
