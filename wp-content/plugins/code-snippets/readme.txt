@@ -1,10 +1,11 @@
 === Code Snippets ===
 Contributors: bungeshea
-Donate link: https://bungeshea.com/donate/
+Donate link: https://bungeshea.com/donate
 Tags: code-snippets, snippets, code, php, network, multisite
 Requires at least: 3.6
-Tested up to: 4.9.4
-Stable tag: 2.10.1.1
+Tested up to: 4.9.8
+Requires PHP: 5.2
+Stable tag: 2.12.0
 License: MIT
 License URI: license.txt
 
@@ -26,6 +27,7 @@ If you have any feedback, issues, or suggestions for improvements please leave a
 
 Code Snippets can be used in these different languages thanks to the following translators:
 
+* Belarusian - [Hrank.com](https://www.hrank.com)
 * Brazilian Portuguese – [Bruno Borges](http://brunoborges.info)
 * French (Canada) - [Dominic Desbiens](http://www.dominicdesbiens.com/)
 * Indonesian - [Jordan Silaen from ChameleonJohn.com](https://www.chameleonjohn.com/)
@@ -110,6 +112,34 @@ That's fantastic! Fork the [repository on GitHub](http://github.com/sheabunge/co
 4. Importing snippets from an XML file
 
 == Changelog ==
+
+= 2.12.0 (23 Sep 2018) =
+* Fixed: Prevented hidden columns setting from reverting to default
+* Improved: Updated import page to improve usability
+* Improved: Added Import button next to page title on manage page
+* Improved: Added coloured banner indicating whether a snippet is active when editing
+* Update CodeMirror to 5.40.0
+
+= 2.11.0 (24 Jul 2018) =
+* Added: Ability to assign a priority to snippets, to determine the order in which they are executed
+* Improvement: The editor cursor position will be preserved when saving a snippet
+* Added: Pressing Ctrl/Cmd + S while writing a snippet will save it
+* Added: Shadow opening PHP tag above the code editor
+* Improved: Updated the message shown when there are no snippets
+* Added: Install sample snippets when the plugin is installed
+* Improved: Show all available tags when selecting the tag field
+* Added: Filter hook for controlling the default list table view
+* Added: Action for cloning snippets
+
+= 2.10.2 (21 Jul 2018) =
+* Added: Button to reset settings to their default values
+* Improved: Made uninstall cleanup optional through a plugin setting
+* Fixed: Applied formatting filters to snippet descriptions in the table
+* Improved: Ordered tags by name in the filter dropdown menu
+* Fixed: Incorrectly translated strings
+* Added: Belarusian translation by Hrank.com
+* Improved: Enabled sorting snippets table by tags
+* Updated CodeMirror to version 5.39.0
 
 = 2.10.1 (10 Feb 2018) =
 * Fixed: Prevent errors when trying to export no snippets
@@ -510,6 +540,9 @@ That's fantastic! Fork the [repository on GitHub](http://github.com/sheabunge/co
 * Stable version released.
 
 == Upgrade Notice ==
+
+= 2.11.0 =
+Snippet priorities and other small features
 
 = 2.10.0 =
 Improvements for multisite and new single-use snippet scope

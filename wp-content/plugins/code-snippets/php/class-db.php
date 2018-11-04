@@ -82,6 +82,7 @@ class Code_Snippets_DB {
 		$multisite = $this->validate_network_param( $multisite );
 
 		/* Retrieve the table name from $wpdb depending on the value of $multisite */
+
 		return ( $multisite ? $wpdb->ms_snippets : $wpdb->snippets );
 	}
 
@@ -122,6 +123,7 @@ class Code_Snippets_DB {
 	 * @uses dbDelta() to apply the SQL code
 	 *
 	 * @param string $table_name The name of the table to create
+	 *
 	 * @return bool whether the table creation was successful
 	 */
 	function create_table( $table_name ) {
@@ -136,6 +138,7 @@ class Code_Snippets_DB {
 				code        longtext    NOT NULL default '',
 				tags        longtext    NOT NULL default '',
 				scope       varchar(15) NOT NULL default 'global',
+				priority    smallint    NOT NULL default 10,
 				active      tinyint(1)  NOT NULL default 0,
 				PRIMARY KEY  (id)
 			) $charset_collate;";
@@ -150,5 +153,56 @@ class Code_Snippets_DB {
 		}
 
 		return $success;
+	}
+
+	/**
+	 * Add sample snippet content to the database
+	 *
+	 * @param bool $network
+	 */
+	public function create_sample_content( $network = false ) {
+
+		$snippets = array(
+
+			array(
+				'name' => __( 'Example HTML shortcode', 'code-snippets' ),
+				'code' => sprintf(
+					"\nadd_shortcode( 'shortcode_name', function () { ?>\n\n\t<p>%s</p>\n\n<?php } );",
+					strip_tags( __( 'write your HTML shortcode content here', 'code-snippets' ) )
+				),
+				'desc' => __( 'This is an example snippet for demonstrating how to add an HTML shortcode.', 'code-snippets' ),
+				'tags' => array( 'shortcode' ),
+			),
+
+			array(
+				'name'  => __( 'Example CSS snippet', 'code-snippets' ),
+				'code'  => sprintf(
+					"\nadd_action( 'wp_head', function () { ?>\n\t<style>\n\n\t\t/* %s */\n\n\t</style>\n<?php } );\n",
+					strip_tags( __( 'write your CSS code here', 'code-snippets' ) )
+				),
+				'desc'  => __( 'This is an example snippet for demonstrating how to add custom CSS code to your website.', 'code-snippets' ),
+				'tags'  => array( 'css' ),
+				'scope' => 'front-end',
+			),
+
+			array(
+				'name'  => __( 'Example JavaScript snippet', 'code-snippets' ),
+				'code'  => sprintf(
+					"\nadd_action( 'wp_head', function () { ?>\n\t<script>\n\n\t\t/* %s */\n\n\t</script>\n<?php } );\n",
+					strip_tags( __( 'write your JavaScript code here', 'code-snippets' ) )
+				),
+				'desc'  => __( 'This is an example snippet for demonstrating how to add custom JavaScript code to your website.', 'code-snippets' ),
+				'tags'  => array( 'javascript' ),
+				'scope' => 'front-end',
+			),
+		);
+
+		foreach ( $snippets as $snippet ) {
+			$snippet = new Code_Snippet( $snippet );
+			$snippet->desc .= ' ' . __( 'You can remove it, or edit it to add your own content.', 'code-snippets' );
+			$snippet->network = $network;
+
+			save_snippet( $snippet );
+		}
 	}
 }

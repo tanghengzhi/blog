@@ -16,6 +16,14 @@ $table = code_snippets()->db->get_table_name();
 $edit_id = code_snippets()->get_menu_slug( 'edit' ) === $_REQUEST['page'] ? absint( $_REQUEST['id'] ) : 0;
 $snippet = get_snippet( $edit_id );
 
+$classes = array();
+
+if ( $edit_id ) {
+	$classes[] = ( $snippet->active ? '' : 'in' ) . 'active-snippet';
+} else {
+	$classes[] = 'new-snippet';
+}
+
 ?>
 <div class="wrap">
 	<h1><?php
@@ -30,7 +38,7 @@ $snippet = get_snippet( $edit_id );
 	}
 	?></h1>
 
-	<form method="post" id="snippet-form" action="" style="margin-top: 10px;">
+	<form method="post" id="snippet-form" action="" style="margin-top: 10px;" class="<?php echo implode( ' ', $classes ); ?>">
 		<?php
 		/* Output the hidden fields */
 
@@ -144,22 +152,46 @@ $snippet = get_snippet( $edit_id );
 </div>
 
 <script>
-/* Loads CodeMirror on the snippet editor */
-(function() {
+	'use strict';
+	/* Loads CodeMirror on the snippet editor */
+	var code_snippet_editor = (function() {
 
-	var atts = [];
-	atts = <?php
-		$atts = array( 'mode' => 'text/x-php' );
-		echo code_snippets_get_editor_atts( $atts, true );
-	?>;
-	atts['viewportMargin'] = Infinity;
+		var atts = [];
+		atts = <?php
+			$atts = array( 'mode' => 'text/x-php' );
+			echo code_snippets_get_editor_atts( $atts, true );
+		?>;
+		atts['viewportMargin'] = Infinity;
 
-	atts['extraKeys'] = {
-		'Ctrl-Enter': function (cm) {
-			document.getElementById('snippet-form').submit();
+		atts['extraKeys'] = {
+			'Ctrl-Enter': function (cm) {
+				document.getElementById('snippet-form').submit();
+			}
+		};
+
+		var editor = CodeMirror.fromTextArea(document.getElementById('snippet_code'), atts);
+
+		// set the cursor to the previous position
+		var matches = window.location.href.match(/[?&]cursor=(\d+)_(\d+)/);
+		if (matches) {
+			editor.focus();
+			editor.setCursor({line: matches[1], ch: matches[2]});
 		}
-	};
 
-	CodeMirror.fromTextArea(document.getElementById('snippet_code'), atts);
-})();
+		// send the current cursor position to the next page
+		document.getElementById('snippet-form').addEventListener('submit', function () {
+			var cursor = editor.getCursor();
+			this.insertAdjacentHTML('beforeend', '<input type="hidden" name="snippet_editor_cursor" value="' + cursor.line + '_' + cursor.ch + '">');
+		});
+
+		// submit snippet  on ctrl/cmd+s
+		document.addEventListener('keydown', function (e) {
+			if ((window.navigator.platform.match('Mac') ? e.metaKey : e.ctrlKey) && 's' === e.key) {
+				e.preventDefault();
+				document.getElementById('save_snippet').click();
+			}
+		}, false);
+
+		return editor;
+	})();
 </script>

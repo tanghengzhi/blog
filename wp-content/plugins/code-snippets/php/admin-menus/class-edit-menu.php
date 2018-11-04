@@ -72,6 +72,8 @@ class Code_Snippets_Edit_Menu extends Code_Snippets_Admin_Menu {
 			add_action( 'code_snippets/admin/single', array( $this, 'render_tags_editor' ) );
 		}
 
+		add_action( 'code_snippets/admin/single', array( $this, 'render_priority_setting' ), 0 );
+
 		if ( code_snippets_get_setting( 'general', 'snippet_scope_enabled' ) ) {
 			add_action( 'code_snippets/admin/single', array( $this, 'render_scope_setting' ), 1 );
 		}
@@ -160,7 +162,7 @@ class Code_Snippets_Edit_Menu extends Code_Snippets_Admin_Menu {
 		}
 
 		$m = '<h3>' . __( "Don't Panic", 'code-snippets' ) . '</h3>';
-		$m .= '<p>' . sprintf( __( 'The code snippet you are trying to save produced a fatal error on line %d:', 'code_snippets' ), $error['line'] ) . '</p>';
+		$m .= '<p>' . sprintf( __( 'The code snippet you are trying to save produced a fatal error on line %d:', 'code-snippets' ), $error['line'] ) . '</p>';
 		$m .= '<strong>' . $error['message'] . '</strong>';
 		$m .= '<p>' . __( 'The previous version of the snippet is unchanged, and the rest of this site should be functioning normally as before.', 'code-snippets' ) . '</p>';
 		$m .= '<p>' . __( 'Please use the back button in your browser to return to the previous page and try to fix the code error.', 'code-snippets' );
@@ -283,10 +285,16 @@ class Code_Snippets_Edit_Menu extends Code_Snippets_Admin_Menu {
 		}
 
 		/* Redirect to edit snippet page */
-		wp_redirect( add_query_arg(
+		$redirect_uri = add_query_arg(
 			array( 'id' => $snippet_id, 'result' => $result ),
 			code_snippets()->get_menu_url( 'edit' )
-		) );
+		);
+
+		if ( isset( $_POST['snippet_editor_cursor'] ) ) {
+			$redirect_uri = add_query_arg( 'cursor', $_POST['snippet_editor_cursor'], $redirect_uri );
+		}
+
+		wp_redirect( esc_url_raw( $redirect_uri ) );
 		exit;
 	}
 
@@ -343,9 +351,26 @@ class Code_Snippets_Edit_Menu extends Code_Snippets_Admin_Menu {
 		jQuery('#snippet_tags').tagit({
 			availableTags: <?php echo wp_json_encode( get_all_snippet_tags() ); ?>,
 			allowSpaces: true,
-			removeConfirmation: true
+			removeConfirmation: true,
+			showAutocompleteOnFocus: true,
 		});
 		</script>
+		<?php
+	}
+
+	/**
+	 * Render the snippet priority setting
+	 *
+	 * @param Code_Snippet $snippet the snippet currently being edited
+	 */
+	public function render_priority_setting( Code_Snippet $snippet ) {
+		?>
+		<p class="snippet-priority"
+		   title="<?php esc_attr_e( 'Snippets with a lower priority number will run before those with a higher number.', 'code-snippets' ); ?>">
+			<label for="snippet_priority"><?php esc_html_e( 'Priority', 'code-snippets' ); ?></label>
+
+			<input name="snippet_priority" type="number" id="snippet_priority" value="<?php echo intval( $snippet->priority ); ?>">
+		</p>
 		<?php
 	}
 
