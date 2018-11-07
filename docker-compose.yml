@@ -1,0 +1,34 @@
+version: '3.3'
+
+services:
+
+  nginx:
+    image: nginx
+    restart: always
+    volumes:
+      - ./nginx:/etc/nginx/conf.d
+      - ./:/var/www/html
+    ports:
+      - 8000:80
+
+  wordpress:
+    image: wordpress
+    restart: always
+    volumes:
+      - ./:/var/www/html
+    environment:
+      WORDPRESS_DB_USER: root
+      WORDPRESS_DB_PASSWORD: wordpress
+
+  mysql:
+    image: mysql
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: wordpress
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8080:8080
